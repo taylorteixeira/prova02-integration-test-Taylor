@@ -9,7 +9,7 @@
 
 ## SonarCloud
 
-[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=ugioni_integration-tests-jest&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=ugioni_integration-tests-jest)
+[![Quality Gate Status](https://sonarcloud.io/api/project_badges/measure?project=taylorteixeira_prova02-integration-test-Taylor&metric=alert_status)](https://sonarcloud.io/summary/new_code?id=taylorteixeira_prova02-integration-test-Taylor)
 
 # Getting Started
 
