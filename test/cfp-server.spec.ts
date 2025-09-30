@@ -3,11 +3,14 @@ import { StatusCodes } from 'http-status-codes';
 import { SimpleReporter } from '../simple-reporter';
 import { faker } from '@faker-js/faker';
 
+// Define a URL base da API, com um fallback para o ambiente de produção
 const BASE_URL = process.env.CFP_BASE_URL || 'https://cfp-server.vercel.app';
 
-describe('CFP Server - API Tests', () => {
+describe('Servidor CFP - Testes de API', () => {
   const p = pactum;
   const rep = SimpleReporter;
+
+  // Cria um usuário com dados fictícios para os testes
   const user = {
     username: faker.internet.username(),
     email: faker.internet.email(),
@@ -19,11 +22,13 @@ describe('CFP Server - API Tests', () => {
   let categoryId: string;
   let goalId: string;
 
+  // Bloco executado uma vez antes de todos os testes
   beforeAll(async () => {
     p.request.setBaseUrl(BASE_URL);
     p.request.setDefaultTimeout(30000);
     p.reporter.add(rep);
 
+    // Tenta criar um novo usuário
     try {
       await p
         .spec()
@@ -31,57 +36,34 @@ describe('CFP Server - API Tests', () => {
         .withJson(user)
         .expectStatus(StatusCodes.OK);
     } catch (error) {
+      // Ignora o erro se o usuário já existir
     }
 
-    try {
-      const response = await p
-        .spec()
-        .post('/user/signin')
-        .withJson({
-          email: user.email,
-          password: user.password
-        })
-        .expectStatus(StatusCodes.OK);
+    // Realiza o login para obter o cookie de autenticação
+    const response = await p
+      .spec()
+      .post('/user/signin')
+      .withJson({
+        email: user.email,
+        password: user.password
+      })
+      .expectStatus(StatusCodes.OK);
 
-      const setCookieHeader = response.headers['set-cookie'];
-      if (setCookieHeader) {
-        cookie = Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader;
-      } else {
-        throw new Error('No cookie received from signin');
-      }
-    } catch (signinError) {
-      const newUser = {
-        username: faker.internet.username(),
-        email: faker.internet.email(),
-        password: 'Test@12345',
-        mobile: faker.phone.number()
-      };
-
-      await p
-        .spec()
-        .post('/user/signup')
-        .withJson(newUser)
-        .expectStatus(StatusCodes.OK);
-
-      const response = await p
-        .spec()
-        .post('/user/signin')
-        .withJson({
-          email: newUser.email,
-          password: newUser.password
-        })
-        .expectStatus(StatusCodes.OK);
-
-      const setCookieHeader = response.headers['set-cookie'];
-      cookie = Array.isArray(setCookieHeader) ? setCookieHeader[0] : setCookieHeader;
-
-      Object.assign(user, newUser);
+    const setCookieHeader = response.headers['set-cookie'];
+    if (setCookieHeader) {
+      cookie = Array.isArray(setCookieHeader)
+        ? setCookieHeader[0]
+        : setCookieHeader;
+    } else {
+      throw new Error('Nenhum cookie recebido no login');
     }
 
     expect(cookie).toBeDefined();
   });
 
+  // Bloco executado uma vez após todos os testes
   afterAll(async () => {
+    // Realiza o logout se um cookie foi obtido
     if (cookie) {
       try {
         await p
@@ -90,13 +72,15 @@ describe('CFP Server - API Tests', () => {
           .withHeaders('Cookie', cookie)
           .expectStatus(StatusCodes.CREATED);
       } catch (error) {
+        // Ignora erros no logout
       }
     }
     p.reporter.end();
   });
 
-  describe('User Authentication', () => {
-    it('should access protected route successfully', async () => {
+  // Suite de testes para Autenticação de Usuário
+  describe('Autenticação de Usuário', () => {
+    it('deve acessar a rota protegida com sucesso', async () => {
       await p
         .spec()
         .get('/user/protectedRoute')
@@ -109,7 +93,7 @@ describe('CFP Server - API Tests', () => {
         .expectHeaderContains('content-type', 'application/json');
     });
 
-    it('should fail to access protected route without authentication', async () => {
+    it('deve falhar ao acessar a rota protegida sem autenticação', async () => {
       await p
         .spec()
         .get('/user/protectedRoute')
@@ -120,26 +104,34 @@ describe('CFP Server - API Tests', () => {
         });
     });
 
-    it('should fail signin with invalid credentials', async () => {
+    it('deve falhar o login com credenciais inválidas', async () => {
       await p
         .spec()
         .post('/user/signin')
         .withJson({
-          email: 'invalid@email.com',
-          password: 'wrongpassword'
+          email: faker.internet.email(), // Usa um e-mail aleatório e inválido
+          password: faker.internet.password() // Usa uma senha aleatória e inválida
         })
         .expectStatus(StatusCodes.BAD_REQUEST);
     });
   });
 
-  describe('Category Management', () => {
-    it('should create a new expense category', async () => {
+  // Suite de testes para Gerenciamento de Categorias
+  describe('Gerenciamento de Categorias', () => {
+    it('deve criar uma nova categoria de despesa', async () => {
+      const expenseCategory = faker.helpers.arrayElement([
+        'Alimentação',
+        'Transporte',
+        'Moradia',
+        'Lazer',
+        'Saúde'
+      ]);
       const response = await p
         .spec()
         .post('/category/addCategory')
         .withHeaders('Cookie', cookie)
         .withJson({
-          categoryName: faker.commerce.department(),
+          categoryName: expenseCategory,
           categoryType: 'expense'
         })
         .expectStatus(StatusCodes.OK)
@@ -153,13 +145,19 @@ describe('CFP Server - API Tests', () => {
       }
     });
 
-    it('should create an income category', async () => {
+    it('deve criar uma nova categoria de receita', async () => {
+      const incomeCategory = faker.helpers.arrayElement([
+        'Salário',
+        'Bônus',
+        'Investimentos',
+        'Freelance'
+      ]);
       await p
         .spec()
         .post('/category/addCategory')
         .withHeaders('Cookie', cookie)
         .withJson({
-          categoryName: faker.commerce.department(),
+          categoryName: incomeCategory,
           categoryType: 'income'
         })
         .expectStatus(StatusCodes.OK)
@@ -168,12 +166,12 @@ describe('CFP Server - API Tests', () => {
         });
     });
 
-    it('should fail to create category without authentication', async () => {
+    it('deve falhar ao criar categoria sem autenticação', async () => {
       await p
         .spec()
         .post('/category/addCategory')
         .withJson({
-          categoryName: faker.commerce.department(),
+          categoryName: 'Teste sem Auth',
           categoryType: 'expense'
         })
         .expectStatus(StatusCodes.BAD_REQUEST)
@@ -183,7 +181,7 @@ describe('CFP Server - API Tests', () => {
         });
     });
 
-    it('should list all categories', async () => {
+    it('deve listar todas as categorias do usuário', async () => {
       await p
         .spec()
         .get('/category/getCategory')
@@ -193,7 +191,7 @@ describe('CFP Server - API Tests', () => {
         .expectHeaderContains('content-type', 'application/json');
     });
 
-    it('should fail to get categories without authentication', async () => {
+    it('deve falhar ao obter categorias sem autenticação', async () => {
       await p
         .spec()
         .get('/category/getCategory')
@@ -204,7 +202,7 @@ describe('CFP Server - API Tests', () => {
         });
     });
 
-    it('should delete the created category', async () => {
+    it('deve deletar a categoria criada', async () => {
       if (categoryId) {
         await p
           .spec()
@@ -218,8 +216,9 @@ describe('CFP Server - API Tests', () => {
     });
   });
 
-  describe('Goals and Limits Management', () => {
-    it('should create a new goal/limit', async () => {
+  // Suite de testes para Gerenciamento de Metas e Limites
+  describe('Gerenciamento de Metas e Limites', () => {
+    it('deve criar uma nova meta/limite', async () => {
       const response = await p
         .spec()
         .post('/meta/goals-limits')
@@ -239,7 +238,7 @@ describe('CFP Server - API Tests', () => {
       }
     });
 
-    it('should fail to create goal/limit without authentication', async () => {
+    it('deve falhar ao criar meta/limite sem autenticação', async () => {
       await p
         .spec()
         .post('/meta/goals-limits')
@@ -254,7 +253,7 @@ describe('CFP Server - API Tests', () => {
         });
     });
 
-    it('should list all goals/limits', async () => {
+    it('deve listar todas as metas/limites', async () => {
       await p
         .spec()
         .get('/meta/goals-limits')
@@ -265,7 +264,7 @@ describe('CFP Server - API Tests', () => {
         });
     });
 
-    it('should fail to get goals/limits without authentication', async () => {
+    it('deve falhar ao obter metas/limites sem autenticação', async () => {
       await p
         .spec()
         .get('/meta/goals-limits')
@@ -276,7 +275,7 @@ describe('CFP Server - API Tests', () => {
         });
     });
 
-    it('should update the goal/limit', async () => {
+    it('deve atualizar a meta/limite', async () => {
       if (goalId) {
         await p
           .spec()
@@ -293,7 +292,8 @@ describe('CFP Server - API Tests', () => {
       }
     });
 
-    it('should attempt to delete goal/limit', async () => {
+    // Este teste verifica um comportamento de erro conhecido no servidor
+    it('deve tentar deletar a meta/limite e receber um erro esperado', async () => {
       if (goalId) {
         await p
           .spec()
@@ -308,18 +308,19 @@ describe('CFP Server - API Tests', () => {
     });
   });
 
-  describe('Error Handling', () => {
-    it('should handle malformed JSON requests', async () => {
+  // Suite de testes para Tratamento de Erros
+  describe('Tratamento de Erros', () => {
+    it('deve lidar com requisições JSON malformadas', async () => {
       await p
         .spec()
         .post('/category/addCategory')
         .withHeaders('Cookie', cookie)
         .withHeaders('Content-Type', 'application/json')
-        .withBody('{ invalid json }')
+        .withBody('{ "json": "inválido" ') // JSON com sintaxe incorreta
         .expectStatus(StatusCodes.BAD_REQUEST);
     });
 
-    it('should handle server timeout gracefully', async () => {
+    it('deve ter um tempo de resposta aceitável (abaixo de 30s)', async () => {
       await p
         .spec()
         .get('/user/protectedRoute')
