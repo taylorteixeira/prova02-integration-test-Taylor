@@ -3,7 +3,6 @@ import { StatusCodes } from 'http-status-codes';
 import { SimpleReporter } from '../simple-reporter';
 import { faker } from '@faker-js/faker';
 
-// Define a URL base da API, com um fallback para o ambiente de produção
 const BASE_URL = process.env.CFP_BASE_URL || 'https://cfp-server.vercel.app';
 
 describe('Servidor CFP - Testes de API', () => {
@@ -22,7 +21,6 @@ describe('Servidor CFP - Testes de API', () => {
   let categoryId: string;
   let goalId: string;
 
-  // Bloco executado uma vez antes de todos os testes
   beforeAll(async () => {
     p.request.setBaseUrl(BASE_URL);
     p.request.setDefaultTimeout(30000);
@@ -39,7 +37,6 @@ describe('Servidor CFP - Testes de API', () => {
       // Ignora o erro se o usuário já existir
     }
 
-    // Realiza o login para obter o cookie de autenticação
     const response = await p
       .spec()
       .post('/user/signin')
@@ -78,7 +75,6 @@ describe('Servidor CFP - Testes de API', () => {
     p.reporter.end();
   });
 
-  // Suite de testes para Autenticação de Usuário
   describe('Autenticação de Usuário', () => {
     it('deve acessar a rota protegida com sucesso', async () => {
       await p
@@ -109,8 +105,8 @@ describe('Servidor CFP - Testes de API', () => {
         .spec()
         .post('/user/signin')
         .withJson({
-          email: faker.internet.email(), // Usa um e-mail aleatório e inválido
-          password: faker.internet.password() // Usa uma senha aleatória e inválida
+          email: faker.internet.email(), 
+          password: faker.internet.password() 
         })
         .expectStatus(StatusCodes.BAD_REQUEST);
     });
@@ -216,7 +212,6 @@ describe('Servidor CFP - Testes de API', () => {
     });
   });
 
-  // Suite de testes para Gerenciamento de Metas e Limites
   describe('Gerenciamento de Metas e Limites', () => {
     it('deve criar uma nova meta/limite', async () => {
       const response = await p
@@ -292,7 +287,6 @@ describe('Servidor CFP - Testes de API', () => {
       }
     });
 
-    // Este teste verifica um comportamento de erro conhecido no servidor
     it('deve tentar deletar a meta/limite e receber um erro esperado', async () => {
       if (goalId) {
         await p
@@ -308,7 +302,6 @@ describe('Servidor CFP - Testes de API', () => {
     });
   });
 
-  // Suite de testes para Tratamento de Erros
   describe('Tratamento de Erros', () => {
     it('deve lidar com requisições JSON malformadas', async () => {
       await p
@@ -316,7 +309,7 @@ describe('Servidor CFP - Testes de API', () => {
         .post('/category/addCategory')
         .withHeaders('Cookie', cookie)
         .withHeaders('Content-Type', 'application/json')
-        .withBody('{ "json": "inválido" ') // JSON com sintaxe incorreta
+        .withBody('{ "json": "inválido" ') 
         .expectStatus(StatusCodes.BAD_REQUEST);
     });
 
